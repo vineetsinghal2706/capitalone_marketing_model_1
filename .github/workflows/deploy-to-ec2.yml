@@ -62,7 +62,6 @@ jobs:
             echo "Create repository variable: AWS_DEPLOY_ROLE_ARN"
             exit 1
           fi
-
           echo "AWS_DEPLOY_ROLE_ARN is configured."
 
       - name: Configure AWS credentials using GitHub OIDC
@@ -98,12 +97,41 @@ jobs:
 
       - name: Deploy code using SSM
         run: |
-          aws ssm send-command \
+          DEPLOY_COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy capitalone_marketing_model_1 to EC2" \
             --parameters "commands=file:///tmp/deploy-commands.json" \
+            --query "Command.CommandId" \
+            --output text \
+            --region "$AWS_REGION")
+
+          echo "Deployment command: $DEPLOY_COMMAND_ID"
+
+          aws ssm wait command-executed \
+            --command-id "$DEPLOY_COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --region "$AWS_REGION" || true
+
+          echo "===== DEPLOYMENT OUTPUT ====="
+          aws ssm get-command-invocation \
+            --command-id "$DEPLOY_COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
             --region "$AWS_REGION"
+
+          DEPLOY_STATUS=$(aws ssm get-command-invocation \
+            --command-id "$DEPLOY_COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query "Status" \
+            --output text \
+            --region "$AWS_REGION")
+
+          echo "Deployment status: $DEPLOY_STATUS"
+
+          if [ "$DEPLOY_STATUS" != "Success" ]; then
+            echo "::error::EC2 deployment failed. See SSM output above."
+            exit 1
+          fi
 
       - name: Create SSM verification commands file
         run: |
@@ -135,12 +163,27 @@ jobs:
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
             --instance-id "$EC2_INSTANCE_ID" \
-            --region "$AWS_REGION"
+            --region "$AWS_REGION" || true
 
+          echo "===== VERIFICATION OUTPUT ====="
           aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
             --instance-id "$EC2_INSTANCE_ID" \
             --region "$AWS_REGION"
+
+          VERIFY_STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --query "Status" \
+            --output text \
+            --region "$AWS_REGION")
+
+          echo "Verification status: $VERIFY_STATUS"
+
+          if [ "$VERIFY_STATUS" != "Success" ]; then
+            echo "::error::EC2 verification failed. See SSM output above."
+            exit 1
+          fi
 
       - name: Deployment completed
         run: |
