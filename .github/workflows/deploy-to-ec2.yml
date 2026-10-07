@@ -48,15 +48,41 @@ jobs:
     needs: validate
 
     steps:
-      - name: Configure AWS credentials
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check AWS role variable
+        env:
+          DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: |
+          if [ -z "$DEPLOY_ROLE_ARN" ]; then
+            echo "::error::AWS_DEPLOY_ROLE_ARN is empty or not configured."
+            echo "Go to GitHub -> Settings -> Secrets and variables -> Actions -> Variables"
+            echo "Create repository variable: AWS_DEPLOY_ROLE_ARN"
+            echo "Value should look like: arn:aws:iam::<ACCOUNT_ID>:role/<ROLE_NAME>"
+            exit 1
+          fi
+
+          echo "AWS_DEPLOY_ROLE_ARN is configured."
+
+      - name: Configure AWS credentials using GitHub OIDC
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+          audience: sts.amazonaws.com
+
+      - name: Verify AWS identity
+        run: |
+          aws sts get-caller-identity
 
       - name: Deploy code using SSM
         run: |
-          aws ssm send-command             --instance-ids "$EC2_INSTANCE_ID"             --document-name "AWS-RunShellScript"             --comment "Deploy capitalone_marketing_model_1 to EC2"             --parameters commands='[
+          aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy capitalone_marketing_model_1 to EC2" \
+            --parameters commands='[
               "set -e",
               "sudo mkdir -p /opt/capitalone_marketing_model",
               "sudo chown -R ec2-user:ec2-user /opt/capitalone_marketing_model",
@@ -69,17 +95,30 @@ jobs:
               "cp airflow/dags/*.py /opt/airflow/dags/",
               "chmod 644 /opt/airflow/dags/*.py",
               "echo DEPLOYMENT_COMPLETED"
-            ]'             --region "$AWS_REGION"
+            ]' \
+            --region "$AWS_REGION"
 
       - name: Verify EC2 deployment
         run: |
-          COMMAND_ID=$(aws ssm send-command             --instance-ids "$EC2_INSTANCE_ID"             --document-name "AWS-RunShellScript"             --parameters 'commands=["cd /opt/capitalone_marketing_model && git rev-parse --short HEAD && ls -la jobs && ls -la airflow/dags && .venv/bin/python --version"]'             --query "Command.CommandId"             --output text             --region "$AWS_REGION")
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=["cd /opt/capitalone_marketing_model && git rev-parse --short HEAD && ls -la jobs && ls -la airflow/dags && .venv/bin/python --version"]' \
+            --query "Command.CommandId" \
+            --output text \
+            --region "$AWS_REGION")
 
           echo "Verification command: $COMMAND_ID"
 
-          aws ssm wait command-executed             --command-id "$COMMAND_ID"             --instance-id "$EC2_INSTANCE_ID"             --region "$AWS_REGION"
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --region "$AWS_REGION"
 
-          aws ssm get-command-invocation             --command-id "$COMMAND_ID"             --instance-id "$EC2_INSTANCE_ID"             --region "$AWS_REGION"
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$EC2_INSTANCE_ID" \
+            --region "$AWS_REGION"
 
       - name: Deployment completed
         run: |
