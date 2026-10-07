@@ -75,24 +75,26 @@ jobs:
         run: |
           aws sts get-caller-identity
 
-      - name: Create SSM deployment commands file
+      - name: Create SSM deployment parameters file
         run: |
-          cat > /tmp/deploy-commands.json <<'JSON'
-          [
-            "set -euo pipefail",
-            "if ! command -v git >/dev/null 2>&1; then echo 'Git is not installed on EC2'; exit 1; fi",
-            "mkdir -p /opt/capitalone_marketing_model",
-            "git config --global --add safe.directory /opt/capitalone_marketing_model",
-            "cd /opt/capitalone_marketing_model",
-            "if [ -d .git ]; then git remote set-url origin https://github.com/vineetsinghal2706/capitalone_marketing_model_1.git; git fetch origin main; git reset --hard origin/main; else find /opt/capitalone_marketing_model -mindepth 1 -maxdepth 1 -exec rm -rf {} +; git clone https://github.com/vineetsinghal2706/capitalone_marketing_model_1.git .; fi",
-            "python3 -m venv .venv",
-            ".venv/bin/python -m pip install --upgrade pip",
-            ".venv/bin/pip install -r requirements.txt",
-            "mkdir -p /opt/airflow/dags",
-            "cp airflow/dags/*.py /opt/airflow/dags/",
-            "chmod 644 /opt/airflow/dags/*.py",
-            "echo DEPLOYMENT_COMPLETED"
-          ]
+          cat > /tmp/deploy-parameters.json <<'JSON'
+          {
+            "commands": [
+              "set -euo pipefail",
+              "if ! command -v git >/dev/null 2>&1; then echo 'Git is not installed on EC2'; exit 1; fi",
+              "mkdir -p /opt/capitalone_marketing_model",
+              "git config --global --add safe.directory /opt/capitalone_marketing_model",
+              "cd /opt/capitalone_marketing_model",
+              "if [ -d .git ]; then git remote set-url origin https://github.com/vineetsinghal2706/capitalone_marketing_model_1.git; git fetch origin main; git reset --hard origin/main; else find /opt/capitalone_marketing_model -mindepth 1 -maxdepth 1 -exec rm -rf {} +; git clone https://github.com/vineetsinghal2706/capitalone_marketing_model_1.git .; fi",
+              "python3 -m venv .venv",
+              ".venv/bin/python -m pip install --upgrade pip",
+              ".venv/bin/pip install -r requirements.txt",
+              "mkdir -p /opt/airflow/dags",
+              "cp airflow/dags/*.py /opt/airflow/dags/",
+              "chmod 644 /opt/airflow/dags/*.py",
+              "echo DEPLOYMENT_COMPLETED"
+            ]
+          }
           JSON
 
       - name: Deploy code using SSM
@@ -101,7 +103,7 @@ jobs:
             --instance-ids "$EC2_INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "Deploy capitalone_marketing_model_1 to EC2" \
-            --parameters "commands=file:///tmp/deploy-commands.json" \
+            --parameters file:///tmp/deploy-parameters.json \
             --query "Command.CommandId" \
             --output text \
             --region "$AWS_REGION")
@@ -133,19 +135,21 @@ jobs:
             exit 1
           fi
 
-      - name: Create SSM verification commands file
+      - name: Create SSM verification parameters file
         run: |
-          cat > /tmp/verify-commands.json <<'JSON'
-          [
-            "set -e",
-            "git config --global --add safe.directory /opt/capitalone_marketing_model",
-            "cd /opt/capitalone_marketing_model",
-            "echo REMOTE=$(git remote get-url origin)",
-            "echo COMMIT=$(git rev-parse --short HEAD)",
-            "ls -la jobs",
-            "ls -la airflow/dags",
-            ".venv/bin/python --version"
-          ]
+          cat > /tmp/verify-parameters.json <<'JSON'
+          {
+            "commands": [
+              "set -e",
+              "git config --global --add safe.directory /opt/capitalone_marketing_model",
+              "cd /opt/capitalone_marketing_model",
+              "echo REMOTE=$(git remote get-url origin)",
+              "echo COMMIT=$(git rev-parse --short HEAD)",
+              "ls -la jobs",
+              "ls -la airflow/dags",
+              ".venv/bin/python --version"
+            ]
+          }
           JSON
 
       - name: Verify EC2 deployment
@@ -153,7 +157,7 @@ jobs:
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=file:///tmp/verify-commands.json" \
+            --parameters file:///tmp/verify-parameters.json \
             --query "Command.CommandId" \
             --output text \
             --region "$AWS_REGION")
