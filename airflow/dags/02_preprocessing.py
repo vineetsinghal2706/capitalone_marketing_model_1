@@ -1,29 +1,17 @@
 import pendulum
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
+from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 
 
-APP_DIR = "/opt/capitalone_marketing_model"
-PYTHON = f"{APP_DIR}/.venv/bin/python"
 local_tz = pendulum.timezone("Asia/Kolkata")
 
+GLUE_JOB_NAME = "marketing-model-preprocessing"
 
-def run_preprocessing(**context):
-    import subprocess
 
-    run_date = context["dag_run"].conf.get("run_date", context["ds"])
-
-    subprocess.run(
-        [
-            PYTHON,
-            f"{APP_DIR}/jobs/preprocessing.py",
-            "--run-date",
-            run_date,
-        ],
-        check=True,
-    )
+def run_date_from_conf():
+    return "{{ dag_run.conf.get('run_date', ds) }}"
 
 
 with DAG(
@@ -31,18 +19,23 @@ with DAG(
     start_date=pendulum.datetime(2026, 10, 1, tz=local_tz),
     schedule=None,
     catchup=False,
-    tags=["marketing", "ec2", "pyspark", "preprocessing"],
+    tags=["marketing", "glue", "preprocessing"],
 ) as dag:
 
-    preprocess = PythonOperator(
-        task_id="run_preprocessing",
-        python_callable=run_preprocessing,
+    preprocess = GlueJobOperator(
+        task_id="run_preprocessing_glue",
+        job_name=GLUE_JOB_NAME,
+        wait_for_completion=True,
+        verbose=True,
+        script_args={
+            "--run_date": run_date_from_conf(),
+        },
     )
 
     trigger_scoring = TriggerDagRunOperator(
         task_id="trigger_scoring",
         trigger_dag_id="03_batch_scoring",
-        conf={"run_date": "{{ dag_run.conf.get('run_date', ds) }}"},
+        conf={"run_date": run_date_from_conf()},
         wait_for_completion=False,
     )
 
