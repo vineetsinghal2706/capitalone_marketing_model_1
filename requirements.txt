@@ -1,3 +1,4 @@
+# EC2 runtime dependencies for Snowflake extraction + batch scoring
 pandas==2.2.2
 numpy==1.26.4
 scikit-learn==1.5.2
@@ -6,4 +7,3 @@ boto3==1.35.99
 mlflow==3.0.0
 sagemaker-mlflow
 snowflake-connector-python
-pyspark==3.5.3
