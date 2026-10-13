@@ -38,20 +38,23 @@ with DAG(
 cd {APP_DIR}
 test -x .venv/bin/python
 test -f jobs/batch_score.py
+test -f scoring/score_if_else.py
 
 export AWS_DEFAULT_REGION={AWS_REGION}
+export PYTHONPATH="{APP_DIR}"
 export MLFLOW_TRACKING_URI="{MLFLOW_TRACKING_URI}"
 export MLFLOW_EXPERIMENT_NAME={MLFLOW_EXPERIMENT_NAME}
 export MLFLOW_REQUIRED=true
 
 RUN_DATE="{{{{ dag_run.conf.get('run_date', ds) }}}}"
-echo "Running batch scoring for ${{RUN_DATE}}"
+echo "Running batch scoring for $RUN_DATE"
+echo "PYTHONPATH=$PYTHONPATH"
 
 .venv/bin/python jobs/batch_score.py \\
-  --run-date "${{RUN_DATE}}" \\
-  --input-s3 "s3://{BUCKET}/processed/marketing_features/${{RUN_DATE}}/" \\
-  --output-s3 "s3://{BUCKET}/output/model_v1/${{RUN_DATE}}/" \\
-  --metrics-s3 "s3://{BUCKET}/output/model_v1/${{RUN_DATE}}/metrics.json"
+  --run-date "$RUN_DATE" \\
+  --input-s3 "s3://{BUCKET}/processed/marketing_features/$RUN_DATE/" \\
+  --output-s3 "s3://{BUCKET}/output/model_v1/$RUN_DATE/" \\
+  --metrics-s3 "s3://{BUCKET}/output/model_v1/$RUN_DATE/metrics.json"
 """
                 ]
             },
