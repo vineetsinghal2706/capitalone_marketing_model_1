@@ -2,11 +2,11 @@ import pendulum
 
 from airflow import DAG
 from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
 
 local_tz = pendulum.timezone("Asia/Kolkata")
-
+AWS_REGION = "us-east-1"
 GLUE_JOB_NAME = "marketing-model-preprocessing"
 
 
@@ -25,6 +25,8 @@ with DAG(
     preprocess = GlueJobOperator(
         task_id="run_preprocessing_glue",
         job_name=GLUE_JOB_NAME,
+        aws_conn_id="aws_default",
+        region_name=AWS_REGION,
         wait_for_completion=True,
         verbose=True,
         script_args={
