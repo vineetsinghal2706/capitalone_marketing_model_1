@@ -24,7 +24,7 @@ with DAG(
         aws_conn_id="aws_default",
         region_name=AWS_REGION,
         wait_for_completion=True,
-        verbose=True,
+        verbose=False,
         script_args={"--run_date": "{{ ds }}"},
     )
 
