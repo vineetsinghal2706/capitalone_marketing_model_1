@@ -2,8 +2,27 @@ import argparse
 import io
 import json
 import os
+import sys
 import tempfile
 from datetime import datetime, timezone
+
+# Work around duplicate SageMaker MLflow plugin metadata in this EC2 venv.
+# The venv exposes both lib/ and lib64/ site-packages; loading both registers
+# the request-header provider twice and duplicates x-mlflow-sm-tracking-server-arn.
+# Remove the lib/ path before importing MLflow so only lib64/ is used.
+_duplicate_site_packages = os.path.abspath(
+    os.path.join(
+        sys.prefix,
+        "lib",
+        f"python{sys.version_info.major}.{sys.version_info.minor}",
+        "site-packages",
+    )
+)
+sys.path[:] = [
+    entry
+    for entry in sys.path
+    if os.path.abspath(entry or os.getcwd()) != _duplicate_site_packages
+]
 
 import boto3
 import mlflow
