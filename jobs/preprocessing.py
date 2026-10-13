@@ -78,7 +78,7 @@ def build_features(df):
         .withColumn("campaign_dayofweek", dayofweek("campaign_date"))
         .withColumn("campaign_is_weekend", when(col("campaign_dayofweek").isin(1, 7), 1).otherwise(0))
         .withColumn("campaign_month_sin", sin(2 * lit(3.141592653589793) * col("campaign_month") / lit(12)))
-        .withColumn("campaign_month_cos", cos(2 * lit(3.141592653589793) * col("campaign_month") / lit(12))
+        .withColumn("campaign_month_cos", cos(2 * lit(3.141592653589793) * col("campaign_month") / lit(12)))
     )
     df = (
         df.withColumn("annual_income", when(col("annual_income") > 250000, 250000).otherwise(col("annual_income")))
