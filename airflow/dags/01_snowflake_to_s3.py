@@ -1,29 +1,12 @@
 import pendulum
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.providers.ssh.operators.ssh import SSHOperator
+from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
 
 APP_DIR = "/opt/capitalone_marketing_model"
-PYTHON = f"{APP_DIR}/.venv/bin/python"
 local_tz = pendulum.timezone("Asia/Kolkata")
-
-
-def run_snowflake_to_s3(**context):
-    import subprocess
-
-    run_date = context["ds"]
-
-    subprocess.run(
-        [
-            PYTHON,
-            f"{APP_DIR}/jobs/snowflake_to_s3.py",
-            "--run-date",
-            run_date,
-        ],
-        check=True,
-    )
 
 
 with DAG(
@@ -34,9 +17,15 @@ with DAG(
     tags=["marketing", "ec2", "snowflake", "s3"],
 ) as dag:
 
-    extract = PythonOperator(
+    extract = SSHOperator(
         task_id="extract_snowflake_to_s3",
-        python_callable=run_snowflake_to_s3,
+        ssh_conn_id="ec2_ssh",
+        command=(
+            f"cd {APP_DIR} && "
+            f".venv/bin/python jobs/snowflake_to_s3.py "
+            "--run-date {{ ds }}"
+        ),
+        cmd_timeout=3600,
     )
 
     trigger_preprocessing = TriggerDagRunOperator(
