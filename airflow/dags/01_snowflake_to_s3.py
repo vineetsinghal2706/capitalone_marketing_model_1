@@ -1,12 +1,12 @@
 import pendulum
 
 from airflow import DAG
-from airflow.providers.ssh.operators.ssh import SSHOperator
+from airflow.providers.amazon.aws.operators.glue import GlueJobOperator
 from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
 
 
-APP_DIR = "/opt/capitalone_marketing_model"
 local_tz = pendulum.timezone("Asia/Kolkata")
+GLUE_JOB_NAME = "snowflake-to-s3-bank-marketing"
 
 
 with DAG(
@@ -14,18 +14,15 @@ with DAG(
     start_date=pendulum.datetime(2026, 10, 1, tz=local_tz),
     schedule=None,
     catchup=False,
-    tags=["marketing", "ec2", "snowflake", "s3"],
+    tags=["marketing", "glue", "snowflake", "s3"],
 ) as dag:
 
-    extract = SSHOperator(
+    extract = GlueJobOperator(
         task_id="extract_snowflake_to_s3",
-        ssh_conn_id="ec2_ssh",
-        command=(
-            f"cd {APP_DIR} && "
-            f".venv/bin/python jobs/snowflake_to_s3.py "
-            "--run-date {{ ds }}"
-        ),
-        cmd_timeout=3600,
+        job_name=GLUE_JOB_NAME,
+        wait_for_completion=True,
+        verbose=True,
+        script_args={"--run_date": "{{ ds }}"},
     )
 
     trigger_preprocessing = TriggerDagRunOperator(
