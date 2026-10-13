@@ -29,7 +29,7 @@ def run_snowflake_to_s3(**context):
 with DAG(
     dag_id="01_snowflake_to_s3",
     start_date=pendulum.datetime(2026, 10, 1, tz=local_tz),
-    schedule="0 14 * * 1",
+    schedule=None,
     catchup=False,
     tags=["marketing", "ec2", "snowflake", "s3"],
 ) as dag:
