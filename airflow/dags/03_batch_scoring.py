@@ -12,6 +12,7 @@ MLFLOW_TRACKING_URI = (
     "arn:aws:sagemaker:us-east-1:783495713343:"
     "mlflow-tracking-server/marketing-mlflow-server"
 )
+MLFLOW_EXPERIMENT_NAME = "bank-marketing-scoring"
 
 
 with DAG(
@@ -26,11 +27,16 @@ with DAG(
         task_id="run_batch_scoring",
         ssh_conn_id="ec2_ssh",
         command=(
-            "set -e && "
+            "set -eu && "
             f"cd {APP_DIR} && "
+            "test -x .venv/bin/python && "
+            "test -f jobs/batch_score.py && "
             f"export AWS_DEFAULT_REGION={AWS_REGION} && "
             f'export MLFLOW_TRACKING_URI="{MLFLOW_TRACKING_URI}" && '
+            f"export MLFLOW_EXPERIMENT_NAME={MLFLOW_EXPERIMENT_NAME} && "
+            "export MLFLOW_REQUIRED=true && "
             'RUN_DATE="{{ dag_run.conf.get(\'run_date\', ds) }}" && '
+            'echo "Running batch scoring for ${RUN_DATE}" && '
             ".venv/bin/python jobs/batch_score.py "
             '--run-date "$RUN_DATE" '
             f'--input-s3 "s3://{BUCKET}/processed/marketing_features/$RUN_DATE/" '
