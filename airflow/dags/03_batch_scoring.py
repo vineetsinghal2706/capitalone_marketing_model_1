@@ -13,9 +13,6 @@ MLFLOW_TRACKING_URI = (
     "arn:aws:sagemaker:us-east-1:783495713343:"
     "mlflow-tracking-server/marketing-mlflow-server"
 )
-MLFLOW_CUSTOM_ENDPOINT = (
-    "https://t-bwb4smk2wovr.us-east-1.experiments.sagemaker.aws"
-)
 MLFLOW_EXPERIMENT_NAME = "bank-marketing-scoring"
 
 
@@ -46,14 +43,13 @@ test -f scoring/score_if_else.py
 export AWS_DEFAULT_REGION={AWS_REGION}
 export PYTHONPATH="{APP_DIR}"
 export MLFLOW_TRACKING_URI="{MLFLOW_TRACKING_URI}"
-export SAGEMAKER_MLFLOW_CUSTOM_ENDPOINT="{MLFLOW_CUSTOM_ENDPOINT}"
 export MLFLOW_EXPERIMENT_NAME={MLFLOW_EXPERIMENT_NAME}
 export MLFLOW_REQUIRED=true
 
 RUN_DATE="{{{{ dag_run.conf.get('run_date', ds) }}}}"
 echo "Running batch scoring for $RUN_DATE"
 echo "PYTHONPATH=$PYTHONPATH"
-echo "MLflow endpoint=$SAGEMAKER_MLFLOW_CUSTOM_ENDPOINT"
+echo "MLflow tracking ARN=$MLFLOW_TRACKING_URI"
 
 .venv/bin/python jobs/batch_score.py \\
   --run-date "$RUN_DATE" \\
