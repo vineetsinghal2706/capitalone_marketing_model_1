@@ -6,6 +6,7 @@ from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOpe
 
 
 local_tz = pendulum.timezone("Asia/Kolkata")
+AWS_REGION = "us-east-1"
 GLUE_JOB_NAME = "snowflake-to-s3-bank-marketing"
 
 
@@ -20,6 +21,8 @@ with DAG(
     extract = GlueJobOperator(
         task_id="extract_snowflake_to_s3",
         job_name=GLUE_JOB_NAME,
+        aws_conn_id="aws_default",
+        region_name=AWS_REGION,
         wait_for_completion=True,
         verbose=True,
         script_args={"--run_date": "{{ ds }}"},
