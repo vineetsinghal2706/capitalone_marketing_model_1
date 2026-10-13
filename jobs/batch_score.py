@@ -719,12 +719,20 @@ def main():
     # ========================================================
 
     mlflow_enabled = False
+    mlflow_required = os.getenv("MLFLOW_REQUIRED", "false").strip().lower() in {
+        "1", "true", "yes", "y"
+    }
 
     try:
 
         mlflow_enabled = configure_mlflow()
 
     except Exception as e:
+
+        if mlflow_required:
+            raise RuntimeError(
+                "MLflow configuration failed while MLFLOW_REQUIRED is enabled."
+            ) from e
 
         print(
             "WARNING: MLflow configuration failed."
@@ -736,6 +744,11 @@ def main():
 
         print(
             "Scoring will continue without MLflow."
+        )
+
+    if mlflow_required and not mlflow_enabled:
+        raise RuntimeError(
+            "MLFLOW_REQUIRED is enabled, but MLflow tracking was not configured."
         )
 
     # ========================================================
@@ -950,6 +963,11 @@ def main():
                 pass
 
         except Exception as e:
+
+            if mlflow_required:
+                raise RuntimeError(
+                    "MLflow metric/artifact logging failed while MLFLOW_REQUIRED is enabled."
+                ) from e
 
             print(
                 "\nWARNING: MLflow logging failed."
